@@ -29,6 +29,7 @@ func ParseSchema(schemaString string, resolver interface{}, opts ...SchemaOpt) (
 		tracer:           trace.OpenTracingTracer{},
 		validationTracer: trace.NoopValidationTracer{},
 		logger:           &log.DefaultLogger{},
+		errorPresenter:   errors.DefaultErrorPresenterFunc,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -69,6 +70,7 @@ type Schema struct {
 	tracer                trace.Tracer
 	validationTracer      trace.ValidationTracer
 	logger                log.Logger
+	errorPresenter        errors.ErrorPresenterFunc
 	useStringDescriptions bool
 	disableIntrospection  bool
 }
@@ -125,6 +127,14 @@ func ValidationTracer(tracer trace.ValidationTracer) SchemaOpt {
 func Logger(logger log.Logger) SchemaOpt {
 	return func(s *Schema) {
 		s.logger = logger
+	}
+}
+
+// ErrorPresenterFunc is used to format error string. (You can also log error detail/stack in this func.)
+// It defaults to errors.DefaultErrorPresenterFunc.
+func ErrorPresenter(errorPresenter errors.ErrorPresenterFunc) SchemaOpt {
+	return func(s *Schema) {
+		s.errorPresenter = errorPresenter
 	}
 }
 
@@ -215,9 +225,10 @@ func (s *Schema) exec(ctx context.Context, queryString string, operationName str
 			Schema:               s.schema,
 			DisableIntrospection: s.disableIntrospection,
 		},
-		Limiter: make(chan struct{}, s.maxParallelism),
-		Tracer:  s.tracer,
-		Logger:  s.logger,
+		Limiter:        make(chan struct{}, s.maxParallelism),
+		Tracer:         s.tracer,
+		Logger:         s.logger,
+		ErrorPresenter: s.errorPresenter,
 	}
 	varTypes := make(map[string]*introspection.Type)
 	for _, v := range op.Vars {

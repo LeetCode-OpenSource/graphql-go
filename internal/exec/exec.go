@@ -20,9 +20,10 @@ import (
 
 type Request struct {
 	selected.Request
-	Limiter chan struct{}
-	Tracer  trace.Tracer
-	Logger  log.Logger
+	Limiter        chan struct{}
+	Tracer         trace.Tracer
+	Logger         log.Logger
+	ErrorPresenter errors.ErrorPresenterFunc
 }
 
 func (r *Request) handlePanic(ctx context.Context) {
@@ -204,9 +205,11 @@ func execFieldSelection(ctx context.Context, r *Request, s *resolvable.Schema, f
 			result = callOut[0]
 			if f.field.HasError && !callOut[1].IsNil() {
 				resolverErr := callOut[1].Interface().(error)
-				err := errors.Errorf("%s", resolverErr)
-				err.Path = path.toSlice()
-				err.ResolverError = resolverErr
+				err := &errors.QueryError{
+					Message:       r.ErrorPresenter(ctx, resolverErr),
+					Path:          path.toSlice(),
+					ResolverError: resolverErr,
+				}
 				if ex, ok := callOut[1].Interface().(extensionser); ok {
 					err.Extensions = ex.Extensions()
 				}

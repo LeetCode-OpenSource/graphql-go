@@ -1,8 +1,15 @@
 package errors
 
 import (
+	"context"
 	"fmt"
 )
+
+type ErrorPresenterFunc func(ctx context.Context, err error) string
+
+func DefaultErrorPresenterFunc(ctx context.Context, err error) string {
+	return err.Error()
+}
 
 type QueryError struct {
 	Message       string                 `json:"message"`
