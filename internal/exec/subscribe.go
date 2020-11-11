@@ -109,9 +109,10 @@ func (r *Request) Subscribe(ctx context.Context, s *resolvable.Schema, op *query
 						Vars:   r.Request.Vars,
 						Schema: r.Request.Schema,
 					},
-					Limiter: r.Limiter,
-					Tracer:  r.Tracer,
-					Logger:  r.Logger,
+					Limiter:        r.Limiter,
+					Tracer:         r.Tracer,
+					Logger:         r.Logger,
+					ErrorPresenter: r.ErrorPresenter,
 				}
 				var out bytes.Buffer
 				func() {

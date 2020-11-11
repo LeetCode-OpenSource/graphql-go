@@ -282,11 +282,21 @@ func (r *Request) execSelectionSet(ctx context.Context, sels []selected.Selectio
 		out.Write(data)
 
 	case *schema.Enum:
-		var stringer fmt.Stringer = resolver
-		if s, ok := resolver.Interface().(fmt.Stringer); ok {
-			stringer = s
+		var name string
+		switch value := resolver.Interface().(type) {
+		case fmt.Stringer:
+			name = value.String()
+		case json.Marshaler:
+			nameBytes, err := value.MarshalJSON()
+			if err != nil {
+				panic(errors.Errorf("could not marshal enum %v: %s", value, err))
+			}
+
+			name = string(nameBytes)
+		default:
+			name = resolver.String()
 		}
-		name := stringer.String()
+
 		var valid bool
 		for _, v := range t.Values {
 			if v.Name == name {
@@ -327,7 +337,7 @@ func (r *Request) execList(ctx context.Context, sels []selected.Selection, typ *
 				r.execSelectionSet(ctx, sels, typ.OfType, &pathSegment{path, i}, s, resolver.Index(i), &entryouts[i])
 			}(i)
 		}
-		for i := 0; i < concurrency;i++ {
+		for i := 0; i < concurrency; i++ {
 			sem <- struct{}{}
 		}
 	} else {

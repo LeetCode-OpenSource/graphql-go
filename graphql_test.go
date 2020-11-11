@@ -2720,6 +2720,43 @@ func (e *IntEnum) UnmarshalGraphQL(input interface{}) error {
 	return fmt.Errorf("wrong type for IntEnum: %T", input)
 }
 
+type UintEnum uint
+
+const (
+	UintEnum0 UintEnum = iota
+	UintEnum1
+)
+
+func (UintEnum) ImplementsGraphQLType(name string) bool {
+	return name == "UintEnum"
+}
+
+func (e *UintEnum) UnmarshalGraphQL(input interface{}) error {
+	if str, ok := input.(string); ok {
+		switch str {
+		case "Uint0":
+			*e = UintEnum(0)
+		case "Uint1":
+			*e = UintEnum(1)
+		default:
+			return fmt.Errorf("wrong value for UintEnum: %v", input)
+		}
+		return nil
+	}
+	return fmt.Errorf("wrong type for UintEnum: %T", input)
+}
+
+func (e UintEnum) MarshalJSON() ([]byte, error) {
+	switch uint(e) {
+	case 0:
+		return ([]byte)("Uint0"), nil
+	case 1:
+		return ([]byte)("Uint1"), nil
+	default:
+		return nil, fmt.Errorf("wrong value for UintEnum: %v", e)
+	}
+}
+
 type inputResolver struct{}
 
 func (r *inputResolver) Int(args struct{ Value int32 }) int32 {
@@ -2795,6 +2832,22 @@ func (r *inputResolver) NullableIntEnum(args struct{ Value *IntEnum }) *IntEnum 
 	return args.Value
 }
 
+func (r *inputResolver) UintEnumValue(args struct{ Value string }) string {
+	return args.Value
+}
+
+func (r *inputResolver) NullableUintEnumValue(args struct{ Value *string }) *string {
+	return args.Value
+}
+
+func (r *inputResolver) UintEnum(args struct{ Value UintEnum }) UintEnum {
+	return args.Value
+}
+
+func (r *inputResolver) NullableUintEnum(args struct{ Value *UintEnum }) *UintEnum {
+	return args.Value
+}
+
 type recursive struct {
 	Next *recursive
 }
@@ -2837,6 +2890,10 @@ func TestInput(t *testing.T) {
 			nullableIntEnumValue(value: IntEnum): IntEnum
 			intEnum(value: IntEnum!): IntEnum!
 			nullableIntEnum(value: IntEnum): IntEnum
+			uintEnumValue(value: UintEnum!): UintEnum!
+			nullableUintEnumValue(value: UintEnum): UintEnum
+			uintEnum(value: UintEnum!): UintEnum!
+			nullableUintEnum(value: UintEnum): UintEnum
 			recursive(value: RecursiveInput!): Int!
 			id(value: ID!): ID!
 		}
@@ -2857,6 +2914,11 @@ func TestInput(t *testing.T) {
 		enum IntEnum {
 			Int0
 			Int1
+		}
+
+		enum UintEnum {
+			Uint0
+			Uint1
 		}
 	`, &inputResolver{})
 	gqltesting.RunTests(t, []*gqltesting.Test{
@@ -2887,6 +2949,12 @@ func TestInput(t *testing.T) {
 					intEnum(value: Int1)
 					nullableIntEnum1: nullableIntEnum(value: Int1)
 					nullableIntEnum2: nullableIntEnum(value: null)
+					uintEnumValue(value: Uint1)
+					nullableUintEnumValue1: nullableUintEnumValue(value: Uint1)
+					nullableUintEnumValue2: nullableUintEnumValue(value: null)
+					uintEnum(value: Uint1)
+					nullableUintEnum1: nullableUintEnum(value: Uint1)
+					nullableUintEnum2: nullableUintEnum(value: null)
 					recursive(value: {next: {next: {}}})
 					intID: id(value: 1234)
 					strID: id(value: "1234")
@@ -2917,6 +2985,12 @@ func TestInput(t *testing.T) {
 					"intEnum": "Int1",
 					"nullableIntEnum1": "Int1",
 					"nullableIntEnum2": null,
+					"uintEnumValue": "Uint1",
+					"nullableUintEnumValue1": "Uint1",
+					"nullableUintEnumValue2": null,
+					"uintEnum": "Uint1",
+					"nullableUintEnum1": "Uint1",
+					"nullableUintEnum2": null,
 					"recursive": 3,
 					"intID": "1234",
 					"strID": "1234"
@@ -2926,7 +3000,7 @@ func TestInput(t *testing.T) {
 	})
 }
 
-type inputArgumentsHello struct {}
+type inputArgumentsHello struct{}
 
 type inputArgumentsScalarMismatch1 struct{}
 
@@ -2946,7 +3020,7 @@ type helloInputMismatch struct {
 	World string
 }
 
-func (r *inputArgumentsHello) Hello(args struct { Input *helloInput }) string {
+func (r *inputArgumentsHello) Hello(args struct{ Input *helloInput }) string {
 	return "Hello " + args.Input.Name + "!"
 }
 
@@ -2954,7 +3028,7 @@ func (r *inputArgumentsScalarMismatch1) Hello(name string) string {
 	return "Hello " + name + "!"
 }
 
-func (r *inputArgumentsScalarMismatch2) Hello(args struct { World string }) string {
+func (r *inputArgumentsScalarMismatch2) Hello(args struct{ World string }) string {
 	return "Hello " + args.World + "!"
 }
 
@@ -2962,11 +3036,11 @@ func (r *inputArgumentsObjectMismatch1) Hello(in helloInput) string {
 	return "Hello " + in.Name + "!"
 }
 
-func (r *inputArgumentsObjectMismatch2) Hello(args struct { Input *helloInputMismatch }) string {
+func (r *inputArgumentsObjectMismatch2) Hello(args struct{ Input *helloInputMismatch }) string {
 	return "Hello " + args.Input.World + "!"
 }
 
-func (r *inputArgumentsObjectMismatch3) Hello(args struct { Input *struct { Thing string } }) string {
+func (r *inputArgumentsObjectMismatch3) Hello(args struct{ Input *struct{ Thing string } }) string {
 	return "Hello " + args.Input.Thing + "!"
 }
 
